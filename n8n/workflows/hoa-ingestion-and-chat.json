@@ -1,0 +1,693 @@
+{
+  "createdAt": "2026-05-31T00:10:00.000Z",
+  "updatedAt": "2026-05-31T00:10:00.000Z",
+  "id": "tQ4Qv9qY2TnM4XrK",
+  "name": "HOA Q&A Ingestion and Chat",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "folder",
+        "path": "/data/shared/rag-files/inbox",
+        "events": ["add"],
+        "options": {
+          "awaitWriteFinish": true,
+          "usePolling": true
+        }
+      },
+      "id": "11d30f99-2ab8-44cd-8f75-c302891e452f",
+      "name": "On New File",
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [-120, 340]
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.path }}",
+        "options": {}
+      },
+      "id": "127a8ef5-c8d7-4395-8e24-a72df790ea8d",
+      "name": "Read File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [100, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://docling:5001/v1/convert/file/async",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "to_formats",
+              "value": "md"
+            },
+            {
+              "name": "do_ocr",
+              "value": "true"
+            },
+            {
+              "name": "image_export_mode",
+              "value": "placeholder"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3a1f6c2e-9b4d-4f8a-bc11-2d6e8a0f1234",
+      "name": "Submit to Docling",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, 340]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "5c2a7d10-1e3b-4a6c-9f22-7b8c1d2e3f44",
+      "name": "Wait 5s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [540, 340],
+      "webhookId": "a7b3c9d1-2e4f-4a6b-8c1d-3e5f7a9b1c2d"
+    },
+    {
+      "parameters": {
+        "url": "=http://docling:5001/v1/status/poll/{{ $('Submit to Docling').item.json.task_id }}",
+        "options": {}
+      },
+      "id": "6d3b8e21-2f4c-4b7d-a033-8c9d2e3f4a55",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-success",
+              "leftValue": "={{ $json.task_status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e4c9f32-3a5d-4c8e-b144-9d0e3f4a5b66",
+      "name": "Conversion Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [980, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-failure",
+              "leftValue": "={{ $json.task_status }}",
+              "rightValue": "failure",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8f5d0a43-4b6e-4d9f-c255-0e1f4a5b6c77",
+      "name": "Conversion Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, 500]
+    },
+    {
+      "parameters": {
+        "url": "=http://docling:5001/v1/result/{{ $('Submit to Docling').item.json.task_id }}",
+        "options": {}
+      },
+      "id": "9a6e1b54-5c7f-4e0a-d366-1f2a5b6c7d88",
+      "name": "Get Result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const markdown = ($input.first().json.document.md_content || '').replace(/<!-- image -->\\n?/g, '');\nconst source = $('On New File').first().json.path.split('/').pop();\nreturn [{ json: { markdown, source } }];"
+      },
+      "id": "ab7f2c65-6d8a-4f1b-e477-2a3b5c6d7e99",
+      "name": "Extract Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 200]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "markdown",
+        "options": {}
+      },
+      "id": "bc8a3d76-7e9b-4a2c-f588-3b4c5d6e7faa",
+      "name": "Markdown to File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1640, 200]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/data/shared/rag-files/markdown/{{ $('On New File').item.json.path.split('/').pop().replace(/\\.[^.]+$/, '') }}.md",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "cd9b4e87-8fac-4b3d-a699-4c5d6e7f8abb",
+      "name": "Save Markdown",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1860, 200]
+    },
+    {
+      "parameters": {},
+      "id": "deac5f98-9abd-4c4e-b7aa-5d6e7f8a9bcc",
+      "name": "Conversion Failed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1420, 600]
+    },
+    {
+      "parameters": {
+        "action": "hash",
+        "type": "SHA256",
+        "value": "={{ $json.markdown }}",
+        "dataPropertyName": "contentHash",
+        "encoding": "hex"
+      },
+      "id": "a1111111-0000-4000-8000-000000000006",
+      "name": "Hash Content",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [1560, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/governing-documents/points/delete?wait=true",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"filter\": { \"should\": [ { \"key\": \"metadata.source\", \"match\": { \"value\": $json.source } }, { \"key\": \"metadata.contentHash\", \"match\": { \"value\": $json.contentHash } } ] } } }}",
+        "options": {}
+      },
+      "id": "a1111111-0000-4000-8000-000000000005",
+      "name": "Delete Existing Vectors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1720, 0]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "governing-documents"
+        },
+        "options": {}
+      },
+      "id": "a1111111-0000-4000-8000-000000000001",
+      "name": "Qdrant Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [1860, -40],
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Qdrant (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3-embedding-8b",
+        "options": {}
+      },
+      "id": "a1111111-0000-4000-8000-000000000002",
+      "name": "Embeddings OpenRouter",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [1760, 160],
+      "credentials": {
+        "openAiApi": {
+          "id": "oAiEmb3sOpenRtr1",
+          "name": "OpenRouter (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "json",
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Extract Markdown').item.json.markdown }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source",
+                "value": "={{ $('Extract Markdown').item.json.source }}"
+              },
+              {
+                "name": "contentHash",
+                "value": "={{ $('Hash Content').item.json.contentHash }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1111111-0000-4000-8000-000000000003",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [1980, 160]
+    },
+    {
+      "parameters": {
+        "chunkSize": 3200,
+        "chunkOverlap": 600,
+        "options": {
+          "splitCode": "markdown"
+        }
+      },
+      "id": "a1111111-0000-4000-8000-000000000004",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [1980, 380]
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "allowedOrigins": "*",
+        "options": {
+          "responseMode": "streaming"
+        }
+      },
+      "id": "b2222222-0000-4000-8000-000000000001",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [-120, -320],
+      "webhookId": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f"
+    },
+    {
+      "parameters": {
+        "promptType": "auto",
+        "options": {
+          "enableStreaming": true,
+          "systemMessage": "You are the assistant for the Mililani Town Unit 34 Association (\"Cluster 34\"), serving board members and the property manager. Answer ONLY from the governing documents returned by the knowledge base search tool. Never use general HOA knowledge.\n\nSearch:\n- Always search the knowledge base before answering.\n- For follow-up questions that refer to the previous exchange (\"is that always true?\", \"what about guests?\"), resolve the reference using the conversation history, then search the knowledge base for that resolved topic. Never answer a follow-up from memory alone; every factual claim must still come from a fresh search.\n- Use the search tool silently. Do not say you are searching, checking documents, or looking things up.\n- Write topic-only natural-language queries (for example: \"trash bin placement\", \"overnight guest parking\"). Omit association identifiers like \"Cluster 34\", \"Unit 34\", or \"Mililani\"; every document is already about this association, so those terms only add noise.\n- If results are weak, search again with simpler wording or synonyms before answering.\n\nGrounding:\n- Use only the retrieved chunks that are actually relevant to the question, and ignore the rest. The tool returns a fixed number of results, so some will be off-topic.\n- If no retrieved chunk answers the question, say the governing documents do not address it. Do not guess.\n\nWriting:\n- Always write complete, grammatical sentences. Every sentence must end with terminal punctuation (a period, question mark, or exclamation point), including any brief line you emit before calling a tool.\n\nAnswer:\n- Open with a one-sentence direct answer, then state the full rule: conditions, exceptions, and what is allowed or prohibited. Quote exact numbers, times, and dates verbatim.\n- When documents conflict, do not silently pick one. Explicitly flag the conflict, state what each document says, and cite both. Note which is more recent or more specific so the reader can judge, but leave the resolution to them.\n\nCitations:\n- Cite a source for every rule or figure you state.\n- Each chunk carries a metadata.source filename in kebab-case. Never print the raw filename. Infer a proper document title from it:\n  - Drop the file extension.\n  - Treat a double hyphen (--) as a separator between the title and a qualifier such as a year or \"amendment\"; render a trailing four-digit year in parentheses.\n  - Replace the remaining single hyphens with spaces and apply Title Case.\n  - Expand obvious legal shorthand into its conventional natural phrasing.\n- Add an article, section, or rule label only when it appears in the retrieved text.\n- Never cite page numbers, line numbers, or any location field."
+        }
+      },
+      "id": "b2222222-0000-4000-8000-000000000002",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [200, -320]
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "id": "b2222222-0000-4000-8000-000000000003",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [100, -120],
+      "credentials": {
+        "openRouterApi": {
+          "id": "oR7kPq2sLmN4xY8z",
+          "name": "OpenRouter (chat)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "knowledge_base",
+        "toolDescription": "Use this to fetch information from the knowledge base.",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "governing-documents"
+        },
+        "topK": 5,
+        "includeDocumentMetadata": true,
+        "options": {}
+      },
+      "id": "b2222222-0000-4000-8000-000000000004",
+      "name": "Knowledge Base (Qdrant)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [360, -120],
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Qdrant (local)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "qwen/qwen3-embedding-8b",
+        "options": {}
+      },
+      "id": "b2222222-0000-4000-8000-000000000005",
+      "name": "Query Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [360, 80],
+      "credentials": {
+        "openAiApi": {
+          "id": "oAiEmb3sOpenRtr1",
+          "name": "OpenRouter (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p /data/shared/rag-files/archive && mv \"{{ $('On New File').item.json.path }}\" /data/shared/rag-files/archive/"
+      },
+      "id": "c3333333-0000-4000-8000-000000000001",
+      "name": "Archive Source",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2080, -40]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('When chat message received').item.json.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "d4444444-0000-4000-8000-000000000001",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-120, -120]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Base (Qdrant)": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Knowledge Base (Qdrant)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On New File": {
+      "main": [
+        [
+          {
+            "node": "Read File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read File": {
+      "main": [
+        [
+          {
+            "node": "Submit to Docling",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit to Docling": {
+      "main": [
+        [
+          {
+            "node": "Wait 5s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5s": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Conversion Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversion Done?": {
+      "main": [
+        [
+          {
+            "node": "Get Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversion Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversion Failed?": {
+      "main": [
+        [
+          {
+            "node": "Conversion Failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 5s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Result": {
+      "main": [
+        [
+          {
+            "node": "Extract Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Markdown": {
+      "main": [
+        [
+          {
+            "node": "Markdown to File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hash Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hash Content": {
+      "main": [
+        [
+          {
+            "node": "Delete Existing Vectors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Existing Vectors": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown to File": {
+      "main": [
+        [
+          {
+            "node": "Save Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenRouter": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Archive Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "b9d5f2c8-4ea3-4071-c326-af8d5e9f1b42",
+  "triggerCount": 0,
+  "tags": []
+}

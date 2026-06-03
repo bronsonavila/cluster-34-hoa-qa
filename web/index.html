@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cluster 34 HOA Q&amp;A</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link href="https://cdn.jsdelivr.net/npm/@n8n/chat@1.0.0/dist/style.css" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0f1012;
+        --surface: #16171a;
+        --surface-2: #1d1e22;
+        --border: rgba(255, 255, 255, 0.09);
+        --accent: #6366f1;
+        --text: #e8e8ec;
+        --text-muted: #9a9aa4;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .container {
+        max-width: 860px;
+        height: 100vh;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        padding: 1.25rem 1.25rem 1.5rem;
+        gap: 1rem;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.25rem 0.25rem 0;
+      }
+
+      .title {
+        font-size: 1.05rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .subtitle {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 0.15rem;
+        font-weight: 400;
+      }
+
+      .reset-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.4rem 0.7rem;
+        color: var(--text-muted);
+        font-family: inherit;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition:
+          color 0.15s ease,
+          border-color 0.15s ease;
+      }
+
+      .reset-btn:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      .reset-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .chat-container {
+        flex: 1;
+        min-height: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      #n8n-chat {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* n8n chat widget theming */
+      :root {
+        --chat--color-primary: #6366f1;
+        --chat--color-primary-shade-50: #5558e0;
+        --chat--color-primary-shade-100: #4a4dd4;
+        --chat--color-secondary: #6366f1;
+        --chat--color-white: #e8e8ec;
+        --chat--color-light: #16171a;
+        --chat--color-light-shade-50: #1d1e22;
+        --chat--color-medium: #9a9aa4;
+        --chat--color-dark: #0f1012;
+        --chat--color-disabled: #3a3a42;
+        --chat--color-typing: #9a9aa4;
+        --chat--spacing: 1rem;
+        --chat--border-radius: 10px;
+        --chat--transition-duration: 0.15s;
+        --chat--textarea--height: 52px;
+        --chat--textarea--max-height: 9rem;
+        --chat--message--bot--background: #1d1e22;
+        --chat--message--bot--color: #e8e8ec;
+        --chat--message--user--background: #6366f1;
+        --chat--message--user--color: #ffffff;
+        --chat--message--pre--background: #0f1012;
+        --chat--window--background: #16171a;
+        --chat--input--background: #1d1e22;
+        --chat--input--border: 1px solid var(--border);
+      }
+
+      .chat-container .n8n-chat {
+        height: 100% !important;
+        max-height: 100% !important;
+      }
+
+      /* Target only message bubbles. A substring match like [class*='chat-message']
+       also catches the chat-messages-list container, clamping the whole list to
+       88% width and leaving dead space on the right. */
+      .chat-message {
+        max-width: 88% !important;
+      }
+
+      [class*='chat-message-bot'],
+      [class*='message-bot'] {
+        background: #1d1e22 !important;
+        color: var(--text) !important;
+        border-radius: 12px 12px 12px 4px !important;
+        padding: 0.9rem 1.1rem !important;
+      }
+
+      [class*='chat-message-user'],
+      [class*='message-user'],
+      [class*='from-user'] [class*='bubble'] {
+        background: var(--accent) !important;
+        color: #ffffff !important;
+        border-radius: 12px 12px 4px 12px !important;
+        padding: 0.9rem 1.1rem !important;
+      }
+
+      /* Rendered markdown inside bot messages */
+      [class*='chat-message-markdown'] {
+        line-height: 1.6 !important;
+        font-size: 0.94rem !important;
+        color: inherit !important;
+      }
+
+      [class*='chat-message-markdown'] > *:first-child {
+        margin-top: 0 !important;
+      }
+      [class*='chat-message-markdown'] > *:last-child {
+        margin-bottom: 0 !important;
+      }
+
+      [class*='chat-message-markdown'] h1,
+      [class*='chat-message-markdown'] h2,
+      [class*='chat-message-markdown'] h3,
+      [class*='chat-message-markdown'] h4 {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+        margin: 1.15rem 0 0.5rem !important;
+      }
+
+      [class*='chat-message-markdown'] h1 {
+        font-size: 1.2rem !important;
+      }
+      [class*='chat-message-markdown'] h2 {
+        font-size: 1.1rem !important;
+      }
+      [class*='chat-message-markdown'] h3 {
+        font-size: 1rem !important;
+      }
+
+      [class*='chat-message-markdown'] h2,
+      [class*='chat-message-markdown'] h3 {
+        padding-bottom: 0.3rem !important;
+        border-bottom: 1px solid var(--border) !important;
+      }
+
+      [class*='chat-message-markdown'] p {
+        margin: 0.55rem 0 !important;
+      }
+
+      [class*='chat-message-markdown'] ul,
+      [class*='chat-message-markdown'] ol {
+        margin: 0.55rem 0 !important;
+        padding-left: 1.4rem !important;
+      }
+
+      [class*='chat-message-markdown'] li {
+        margin: 0.3rem 0 !important;
+      }
+      [class*='chat-message-markdown'] li::marker {
+        color: var(--accent) !important;
+      }
+
+      [class*='chat-message-markdown'] strong {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+      }
+
+      [class*='chat-message-markdown'] a {
+        color: #a5b4fc !important;
+        text-decoration: underline !important;
+      }
+
+      [class*='chat-message-markdown'] blockquote {
+        margin: 0.55rem 0 !important;
+        padding: 0.4rem 0.9rem !important;
+        border-left: 3px solid var(--accent) !important;
+        background: rgba(99, 102, 241, 0.08) !important;
+        border-radius: 0 6px 6px 0 !important;
+        color: #c8c8d2 !important;
+      }
+
+      /* The widget's markdown reset blows blockquote text up to 1.2em + italic.
+       Bring it back in line with surrounding body text. */
+      [class*='chat-message-markdown'] blockquote p {
+        font-size: inherit !important;
+        font-style: normal !important;
+      }
+
+      [class*='chat-message-markdown'] hr {
+        border: none !important;
+        border-top: 1px solid var(--border) !important;
+        margin: 0.9rem 0 !important;
+      }
+
+      [class*='chat-message-markdown'] code {
+        background: #0f1012 !important;
+        color: #c7d2fe !important;
+        border-radius: 5px !important;
+        padding: 0.1rem 0.35rem !important;
+        font-family: 'IBM Plex Mono', monospace !important;
+        font-size: 0.85em !important;
+      }
+
+      [class*='chat-message-markdown'] pre {
+        background: #0f1012 !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        padding: 0.9rem 1rem !important;
+        margin: 0.55rem 0 !important;
+        overflow-x: auto !important;
+      }
+
+      [class*='chat-message-markdown'] pre code {
+        background: transparent !important;
+        padding: 0 !important;
+      }
+
+      [class*='chat-message-markdown'] table {
+        border-collapse: collapse !important;
+        margin: 0.55rem 0 !important;
+        width: 100% !important;
+        font-size: 0.9rem !important;
+      }
+
+      [class*='chat-message-markdown'] th,
+      [class*='chat-message-markdown'] td {
+        border: 1px solid var(--border) !important;
+        padding: 0.4rem 0.6rem !important;
+        text-align: left !important;
+      }
+
+      [class*='chat-message-markdown'] th {
+        background: rgba(255, 255, 255, 0.04) !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+      }
+
+      /* Custom "thinking" indicator (replaces the default bouncing dots) */
+      [class*='chat-message-typing'] > * {
+        display: none !important;
+      }
+
+      [class*='chat-message-typing'].thinking-hidden {
+        display: none !important;
+      }
+
+      [class*='chat-message-typing']::before {
+        content: 'Thinking';
+        font-size: 0.9rem;
+        font-style: italic;
+        background: linear-gradient(90deg, rgba(154, 154, 164, 0.45) 20%, #e8e8ec 50%, rgba(154, 154, 164, 0.45) 80%);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: thinkingShimmer 4s linear infinite;
+      }
+
+      [class*='chat-message-typing']::after {
+        content: '';
+        display: inline-block;
+        width: 1.1em;
+        text-align: left;
+        color: var(--text-muted);
+        animation: thinkingDots 1.4s steps(1, end) infinite;
+      }
+
+      @keyframes thinkingShimmer {
+        from {
+          background-position: 200% 0;
+        }
+        to {
+          background-position: -200% 0;
+        }
+      }
+
+      @keyframes thinkingDots {
+        0% {
+          content: '';
+        }
+        25% {
+          content: '.';
+        }
+        50% {
+          content: '..';
+        }
+        75% {
+          content: '...';
+        }
+        100% {
+          content: '';
+        }
+      }
+
+      /* Input area */
+      .n8n-chat .chat-input {
+        background: var(--surface) !important;
+        border-top: 1px solid var(--border) !important;
+        padding: 0.9rem !important;
+      }
+
+      .n8n-chat .chat-input textarea {
+        background: var(--surface-2) !important;
+        border: 1px solid var(--border) !important;
+        border-right: none !important;
+        border-radius: 10px 0 0 10px !important;
+        color: var(--text) !important;
+        font-family: 'Inter', system-ui, sans-serif !important;
+        padding: 0.8rem 0.9rem !important;
+      }
+
+      .n8n-chat .chat-input textarea::placeholder {
+        color: #6a6a74 !important;
+      }
+
+      .n8n-chat .chat-input textarea:focus {
+        border-color: rgba(99, 102, 241, 0.6) !important;
+        outline: none !important;
+      }
+
+      .n8n-chat .chat-input button {
+        background: var(--accent) !important;
+        border: none !important;
+        border-radius: 0 10px 10px 0 !important;
+        color: #ffffff !important;
+        transition: opacity 0.15s ease !important;
+        height: auto !important;
+        align-self: stretch !important;
+      }
+
+      /* Join the textarea and send button into a single control, and let the
+       button match the textarea height as it grows with multi-line input */
+      .n8n-chat .chat-inputs {
+        gap: 0 !important;
+        align-items: stretch !important;
+      }
+
+      .n8n-chat .chat-inputs-controls {
+        align-items: stretch !important;
+      }
+
+      .n8n-chat .chat-input button:hover {
+        opacity: 0.9 !important;
+      }
+
+      /* The page already renders its own header, so hide the widget's duplicate */
+      .n8n-chat .chat-header {
+        display: none !important;
+      }
+
+      /* Hide only the "Powered by n8n" tagline (prevents a load-time flicker).
+       Note: the chat input lives inside .chat-footer, so do NOT hide that. */
+      .n8n-chat .chat-powered-by,
+      .n8n-chat .chat-get-started-footer {
+        display: none !important;
+      }
+
+      .n8n-chat ::-webkit-scrollbar {
+        width: 6px;
+      }
+      .n8n-chat ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .n8n-chat ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 3px;
+      }
+
+      @media (max-width: 640px) {
+        .container {
+          padding: 1rem 1rem 1.25rem;
+        }
+        .title {
+          font-size: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <div class="title">Cluster 34 HOA Q&amp;A</div>
+          <div class="subtitle">Ask questions about the governing documents</div>
+        </div>
+
+        <button class="reset-btn" onclick="resetConversation()" title="Clear conversation">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          Reset
+        </button>
+      </header>
+
+      <div class="chat-container">
+        <div id="n8n-chat"></div>
+      </div>
+    </div>
+
+    <script>
+      function resetConversation() {
+        try {
+          const keysToRemove = []
+
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+
+            if (key && key.startsWith('n8n-chat/')) keysToRemove.push(key)
+          }
+
+          keysToRemove.forEach(key => localStorage.removeItem(key))
+        } catch (error) {
+          console.warn('Error clearing localStorage:', error)
+        }
+
+        try {
+          const sessionKeysToRemove = []
+
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i)
+
+            if (key && key.startsWith('n8n-chat/')) sessionKeysToRemove.push(key)
+          }
+
+          sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key))
+        } catch (error) {
+          console.warn('Error clearing sessionStorage:', error)
+        }
+
+        location.reload()
+      }
+    </script>
+
+    <script>
+      // The agent streams its response in phases: an optional preamble (any text
+      // it emits before calling the search tool), then the real answer after the
+      // tool returns. Every phase begins with a "begin" event, but they all carry
+      // the same nodeId + runIndex, so the chat widget keys them to one bubble and
+      // concatenates them ("...governing documentsAhoy there...").
+      //
+      // We tag each phase with a distinct runIndex at the network layer, so the
+      // widget renders each phase as its own message. This is prompt-independent:
+      // no matter how chatty the model gets before a tool call, the preamble and
+      // the answer never get mashed together.
+      ;(function splitStreamPhases() {
+        const originalFetch = window.fetch
+
+        const buildSplitter = () => {
+          const decoder = new TextDecoder()
+          const encoder = new TextEncoder()
+          let buffer = ''
+          let phase = -1
+
+          const retag = line => {
+            if (!line.trim()) return line
+
+            try {
+              const event = JSON.parse(line)
+
+              if (event.type === 'begin') phase += 1
+
+              if (event.metadata && phase >= 0) event.metadata.runIndex = phase
+
+              return JSON.stringify(event)
+            } catch {
+              return line
+            }
+          }
+
+          return new TransformStream({
+            transform(chunk, controller) {
+              buffer += decoder.decode(chunk, { stream: true })
+
+              const lines = buffer.split('\n')
+              buffer = lines.pop() ?? ''
+
+              lines.forEach(line => controller.enqueue(encoder.encode(retag(line) + '\n')))
+            },
+            flush(controller) {
+              if (buffer.length > 0) controller.enqueue(encoder.encode(retag(buffer)))
+            }
+          })
+        }
+
+        window.fetch = async function patchedFetch(input, init) {
+          const url = typeof input === 'string' ? input : input?.url
+          const method = (init?.method || (typeof input === 'object' && input?.method) || 'GET').toUpperCase()
+          const response = await originalFetch.apply(this, arguments)
+
+          const isChatStream = url && url.includes('/webhook/') && method === 'POST' && response.body
+
+          if (!isChatStream) return response
+
+          return new Response(response.body.pipeThrough(buildSplitter()), response)
+        }
+      })()
+    </script>
+
+    <script type="module">
+      import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.0.0/dist/chat.bundle.es.js'
+
+      createChat({
+        webhookUrl: 'http://localhost:5678/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat',
+        target: '#n8n-chat',
+        mode: 'fullscreen',
+        showWelcomeScreen: false,
+        defaultLanguage: 'en',
+        initialMessages: ['Ask me anything about the Cluster 34 governing documents.'],
+        i18n: {
+          en: {
+            title: 'Cluster 34 HOA Q&A',
+            subtitle: 'Ask questions about the governing documents',
+            footer: '',
+            getStarted: 'Start Chatting',
+            inputPlaceholder: 'Ask a question...',
+            closeButtonTooltip: 'Close chat'
+          }
+        },
+        webhookConfig: {
+          method: 'POST',
+          headers: {}
+        },
+        chatInputKey: 'chatInput',
+        loadPreviousSession: true,
+        enableStreaming: true
+      })
+    </script>
+
+    <script>
+      // The widget keeps a typing bubble alive during streaming. If the agent
+      // pauses for a tool call (e.g. searching documents), the stream stays open
+      // but no new text arrives. We show the "thinking" indicator during these
+      // stalls, and hide it while text is actively flowing so it doesn't linger
+      // under the answer.
+      ;(function manageThinkingIndicator() {
+        const root = document.querySelector('#n8n-chat')
+
+        if (!root) {
+          setTimeout(manageThinkingIndicator, 200)
+
+          return
+        }
+
+        const idleThreshold = 1500 // MS to wait before assuming a tool call stall
+
+        let lastText = ''
+        let lastChangeAt = Date.now()
+
+        const latestBotText = typingElement => {
+          const previous = typingElement.previousElementSibling
+          const isBotContent =
+            previous &&
+            /chat-message-from-bot/.test(previous.className) &&
+            !/chat-message-typing/.test(previous.className)
+
+          return isBotContent ? previous.textContent.trim() : ''
+        }
+
+        const update = () => {
+          const typingElements = root.querySelectorAll('.chat-message-typing')
+
+          if (typingElements.length === 0) return
+
+          const text = latestBotText(typingElements[typingElements.length - 1])
+
+          if (text !== lastText) {
+            lastText = text
+            lastChangeAt = Date.now()
+          }
+
+          const hasBotContent = text.length > 0
+          const idleFor = Date.now() - lastChangeAt
+          const activelyStreaming = hasBotContent && idleFor < idleThreshold
+
+          typingElements.forEach(element => element.classList.toggle('thinking-hidden', activelyStreaming))
+        }
+
+        new MutationObserver(update).observe(root, { childList: true, subtree: true, characterData: true })
+
+        // A stall produces no DOM mutations, so poll to catch the moment the
+        // stream goes quiet.
+        setInterval(update, 200)
+
+        update()
+      })()
+    </script>
+
+    <script>
+      // The widget renders the textarea without an id, which Chrome flags.
+      ;(function labelChatInput() {
+        const textarea = document.querySelector('#n8n-chat textarea')
+
+        if (!textarea) {
+          setTimeout(labelChatInput, 0)
+
+          return
+        }
+
+        if (!textarea.getAttribute('id')) textarea.setAttribute('id', 'chat-input')
+      })()
+    </script>
+  </body>
+</html>

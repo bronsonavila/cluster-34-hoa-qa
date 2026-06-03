@@ -1,6 +1,10 @@
+.DS_Store
 .env
-shared/rag-files/pending/*
-!shared/rag-files/pending/.gitkeep
-shared/rag-files/processed/*
-!shared/rag-files/processed/.gitkeep
-n8n/demo-data/.imported
+n8n/.imported
+shared/docling-scratch/
+shared/rag-files/inbox/*
+!shared/rag-files/inbox/.gitkeep
+shared/rag-files/archive/*
+!shared/rag-files/archive/.gitkeep
+shared/rag-files/markdown/*
+!shared/rag-files/markdown/.gitkeep
