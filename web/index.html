@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cluster 34 HOA Q&amp;A</title>
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link href="https://cdn.jsdelivr.net/npm/@n8n/chat@1.0.0/dist/style.css" rel="stylesheet" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -569,11 +569,15 @@
       })()
     </script>
 
+    <script src="config.js"></script>
+
     <script type="module">
       import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.0.0/dist/chat.bundle.es.js'
 
       createChat({
-        webhookUrl: 'http://localhost:5678/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat',
+        webhookUrl:
+          window.N8N_WEBHOOK_URL ||
+          'http://localhost:5678/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat',
         target: '#n8n-chat',
         mode: 'fullscreen',
         showWelcomeScreen: false,

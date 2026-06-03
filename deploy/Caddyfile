@@ -1,0 +1,16 @@
+# Caddy auto-HTTPS reverse proxy for the no-Coolify VPS deploy.
+# Hostnames come from the environment (set in .env.cloud). Use sslip.io hosts
+# (e.g. app.<server-ip>.sslip.io) for a domain-free deploy, or your own domain.
+# Caddy obtains and renews Let's Encrypt certs automatically.
+
+{$APP_FQDN} {
+	reverse_proxy web:80
+}
+
+{$N8N_FQDN} {
+	reverse_proxy n8n:5678
+}
+
+{$QDRANT_FQDN} {
+	reverse_proxy qdrant:6333
+}

@@ -1,0 +1,141 @@
+# Cloud stack (no Coolify): Caddy reverse proxy + chat n8n + Qdrant + static UI.
+# Caddy is the only service that publishes host ports (80/443) and terminates TLS
+# via Let's Encrypt. The app services stay internal on the 'cloud' network.
+# See deploy/DEPLOY.md for provisioning and the Caddyfile hostnames.
+
+volumes:
+  n8n_storage:
+  qdrant_storage:
+  caddy_data:
+  caddy_config:
+
+networks:
+  cloud:
+
+x-n8n-cloud: &service-n8n-cloud
+  image: n8nio/n8n:latest
+  networks: ['cloud']
+  restart: unless-stopped
+  # Secrets and public URLs come from .env.cloud (env_file). Do NOT also list them
+  # as key-only entries under environment: a key-only entry resolves from the host
+  # shell (blank here, since nothing exports it) and overrides the env_file value
+  # with an empty string. Only literal key=value defaults belong here.
+  environment:
+    - N8N_DIAGNOSTICS_ENABLED=false
+    - N8N_PERSONALIZATION_ENABLED=false
+    - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+    - N8N_PROTOCOL=https
+    - N8N_PROXY_HOPS=1
+  env_file:
+    - path: .env.cloud
+      required: false
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    networks: ['cloud']
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    env_file:
+      - path: .env.cloud
+        required: false
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - n8n
+      - qdrant
+
+  n8n-import:
+    <<: *service-n8n-cloud
+    container_name: n8n-cloud-import
+    # One-shot seed job. Override the anchor's restart: unless-stopped, otherwise
+    # Docker keeps restarting it after it exits 0, cold-booting n8n every few
+    # seconds just to re-read the .imported marker.
+    restart: 'no'
+    entrypoint: /bin/sh
+    command:
+      - '-c'
+      - |
+        set -eu
+        if [ -f /home/node/.n8n/.imported ]; then
+          echo "Cloud seed data already imported - skipping"
+        else
+          if [ -z "$${APP_PUBLIC_URL:-}" ]; then
+            echo "APP_PUBLIC_URL is required so the chat trigger CORS origin is correct" >&2
+            exit 1
+          fi
+          echo "First run - importing cloud credentials and chat workflow..."
+          n8n import:credentials --separate --input=/n8n/cloud/credentials
+          sed "s|https://app.example.com|$${APP_PUBLIC_URL}|g" /n8n/workflows/hoa-chat.json > /tmp/hoa-chat.json
+          n8n import:workflow --input=/tmp/hoa-chat.json
+          # import:workflow does not honor "active"; set it in the DB before the
+          # main n8n process starts so its startup registers the chat webhook.
+          n8n update:workflow --id=hoaChat2026 --active=true
+          # Only mark complete after every step above succeeded (set -eu).
+          touch /home/node/.n8n/.imported
+          echo "Import complete"
+        fi
+    volumes:
+      - n8n_storage:/home/node/.n8n
+      - ./n8n:/n8n:ro
+
+  n8n:
+    <<: *service-n8n-cloud
+    container_name: n8n-cloud
+    expose:
+      - 5678/tcp
+    volumes:
+      - n8n_storage:/home/node/.n8n
+    depends_on:
+      n8n-import:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant-cloud
+    networks: ['cloud']
+    restart: unless-stopped
+    expose:
+      - 6333/tcp
+    env_file:
+      - path: .env.cloud
+        required: false
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  web:
+    image: nginx:alpine
+    container_name: web-cloud
+    networks: ['cloud']
+    restart: unless-stopped
+    expose:
+      - 80/tcp
+    env_file:
+      - path: .env.cloud
+        required: false
+    # Generate config.js from N8N_PUBLIC_URL, then hand off to nginx's normal
+    # entrypoint. Done inline rather than via a /docker-entrypoint.d script
+    # because nginx ignores mounted *.sh/*.envsh files that lack the executable
+    # bit, and git-checked-out files do not carry one. Inline avoids that footgun.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ -n "$${N8N_PUBLIC_URL:-}" ]; then
+          printf "window.N8N_WEBHOOK_URL = '%s/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat';\n" "$${N8N_PUBLIC_URL}" > /usr/share/nginx/html/config.js
+          echo "Wrote config.js with webhook URL $${N8N_PUBLIC_URL}"
+        else
+          echo "N8N_PUBLIC_URL is not set; leaving config.js unchanged"
+        fi
+        exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    volumes:
+      - ./web:/usr/share/nginx/html
+      - ./deploy/nginx-web.conf:/etc/nginx/conf.d/default.conf:ro

@@ -1,7 +1,6 @@
 volumes:
   n8n_storage:
   postgres_storage:
-  qdrant_storage:
   docling_data:
 
 networks:
@@ -21,8 +20,11 @@ x-n8n: &service-n8n
     - N8N_USER_MANAGEMENT_JWT_SECRET
     - N8N_RESTRICT_FILE_ACCESS_TO=/data/shared
     - NODES_EXCLUDE=[]
-    - OPENROUTER_API_KEY
     - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+  # OPENROUTER_API_KEY, QDRANT_PUBLIC_URL, and QDRANT_API_KEY come from .env via
+  # env_file. Do not also list them as key-only entries here: a key-only entry
+  # resolves from the host shell (blank) and overrides the env_file value with an
+  # empty string, which would make $env.QDRANT_* blank at workflow runtime.
   env_file:
     - path: .env
       required: true
@@ -90,13 +92,18 @@ services:
     command:
       - '-c'
       - |
+        set -eu
         # Only import if not already done (check marker file)
         if [ -f /n8n/.imported ]; then
           echo "Seed data already imported - skipping"
         else
           echo "First run detected - importing seed data..."
           n8n import:credentials --separate --input=/n8n/credentials
-          n8n import:workflow --separate --input=/n8n/workflows
+          n8n import:workflow --input=/n8n/workflows/hoa-ingestion.json
+          # import:workflow does not honor "active"; set it in the DB before the
+          # main n8n process starts so its startup registers the file trigger.
+          n8n update:workflow --id=hoaIngest2026 --active=true
+          # Only mark complete after every step above succeeded (set -eu).
           touch /n8n/.imported
           echo "Import complete"
         fi
@@ -125,16 +132,8 @@ services:
       n8n-import:
         condition: service_completed_successfully
 
-  qdrant:
-    image: qdrant/qdrant
-    hostname: qdrant
-    container_name: qdrant
-    networks: ['demo']
-    restart: unless-stopped
-    ports:
-      - 6333:6333
-    volumes:
-      - qdrant_storage:/qdrant/storage
+  # Local ingestion writes vectors to the VPS-hosted Qdrant (see QDRANT_PUBLIC_URL).
+  # The cloud stack runs its own Qdrant via docker-compose.cloud.yml.
 
   # ===========================================
   # Inbox Poker - keeps the file trigger alive
