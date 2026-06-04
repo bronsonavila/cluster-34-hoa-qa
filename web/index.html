@@ -150,6 +150,18 @@
         max-width: 88% !important;
       }
 
+      /* Bot answers should use the full column; only user messages stay narrow. */
+      .chat-message.chat-message-from-bot {
+        max-width: 100% !important;
+      }
+
+      /* User messages hug their content, capped at 88%, and stay right-aligned. */
+      .chat-message.chat-message-from-user {
+        width: fit-content !important;
+        max-width: 88% !important;
+        margin-left: auto !important;
+      }
+
       [class*='chat-message-bot'],
       [class*='message-bot'] {
         background: #1d1e22 !important;
