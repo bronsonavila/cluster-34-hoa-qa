@@ -135,7 +135,16 @@ docker compose -f docker-compose.cloud.yml pull
 docker compose -f docker-compose.cloud.yml up -d --build
 ```
 
-`pull` refreshes the upstream images (n8n, qdrant, nginx); it does not touch the locally built Caddy image, so `--build` is what picks up Caddyfile or Dockerfile changes.
+`pull` refreshes the upstream images (n8n, qdrant, nginx); it does not touch the locally built Caddy image, so `--build` rebuilds it from `deploy/Caddy.Dockerfile`.
+
+Changes to bind-mounted config files are NOT applied by `up -d`. Compose only recreates a container when its service definition changes (image, env, ports, volume mappings), not when the contents of a mounted file change, and these files are read only when the process starts. After editing one, restart that service explicitly:
+
+```bash
+docker compose -f docker-compose.cloud.yml restart web    # after editing deploy/nginx-web.conf
+docker compose -f docker-compose.cloud.yml restart caddy  # after editing deploy/Caddyfile
+```
+
+For example, the `X-Robots-Tag: noindex` header in `deploy/nginx-web.conf` only takes effect after `restart web`. Files that nginx serves as content rather than reads as config (`web/index.html`, `web/robots.txt`, `web/config.js`) are live on the next request and need no restart.
 
 Workflow/credential changes also need a re-import. Remove the marker to let the import job rerun, or import manually:
 
