@@ -17,8 +17,8 @@ Caddy is the only container that publishes host ports (80/443) and terminates TL
 
 ## 1. Provision the VPS
 
-- Vultr Cloud Compute (Shared CPU), Ubuntu 24.04, Honolulu (closest to Mililani).
-  - 2 GB / 1 vCPU (~$12/mo) is enough without Coolify. 1 GB (~$6/mo) can work for low traffic but is tight.
+- Vultr Cloud Compute (Shared CPU), Ubuntu 24.04, in a region near your users.
+  - 2 GB / 1 vCPU is enough without Coolify. 1 GB can work for low traffic but is tight.
 - Add your SSH key during creation.
 
 After it boots, note the public IP (example below uses `203.0.113.10`).
@@ -63,14 +63,14 @@ openssl rand -hex 24   # use the same value for QDRANT__SERVICE__API_KEY and QDR
 
 Key variables (all in `.env.cloud`):
 
-| Variable | Purpose |
-| -------- | ------- |
-| `APP_FQDN` / `N8N_FQDN` / `QDRANT_FQDN` | Hostnames Caddy serves |
-| `N8N_HOST` / `N8N_PUBLIC_URL` / `N8N_EDITOR_BASE_URL` / `WEBHOOK_URL` | n8n public URL (match `N8N_FQDN`) |
-| `APP_PUBLIC_URL` | Chat UI origin for CORS (match `APP_FQDN`) |
-| `N8N_ENCRYPTION_KEY` | `openssl rand -hex 32` |
-| `QDRANT__SERVICE__API_KEY` / `QDRANT_API_KEY` | Same value; protects Qdrant |
-| `OPENROUTER_API_KEY` | Your OpenRouter key |
+| Variable                                                              | Purpose                                    |
+| --------------------------------------------------------------------- | ------------------------------------------ |
+| `APP_FQDN` / `N8N_FQDN` / `QDRANT_FQDN`                               | Hostnames Caddy serves                     |
+| `N8N_HOST` / `N8N_PUBLIC_URL` / `N8N_EDITOR_BASE_URL` / `WEBHOOK_URL` | n8n public URL (match `N8N_FQDN`)          |
+| `APP_PUBLIC_URL`                                                      | Chat UI origin for CORS (match `APP_FQDN`) |
+| `N8N_ENCRYPTION_KEY`                                                  | `openssl rand -hex 32`                     |
+| `QDRANT__SERVICE__API_KEY` / `QDRANT_API_KEY`                         | Same value; protects Qdrant                |
+| `OPENROUTER_API_KEY`                                                  | Your OpenRouter key                        |
 
 ## 5. Bring up the stack
 
@@ -140,16 +140,36 @@ docker compose -f docker-compose.cloud.yml exec n8n rm -f /home/node/.n8n/.impor
 docker compose -f docker-compose.cloud.yml up -d n8n-import n8n
 ```
 
-## Cost
-
-- Vultr 2 GB: ~$12/month (Honolulu).
-- sslip.io hostnames: free. Optional real domain: ~$1-12/year.
-- OpenRouter: pay per token.
-
 ## Backups
 
 Snapshot the Docker volumes `n8n_storage` (n8n SQLite DB + encryption key) and `qdrant_storage` (vectors) periodically, or take a Vultr instance snapshot. Vectors are also reproducible by re-running local ingestion.
 
 ## Optional: real domain
 
-To use your own domain instead of sslip.io, point A records for `app`, `n8n`, and `qdrant` subdomains at the server IP, then set the `*_FQDN`, `N8N_*`, and `APP_PUBLIC_URL` vars to those names and restart. Caddy will reissue certs.
+To move from sslip.io to your own domain, you only need to relocate the user-facing hosts (`app` and `n8n`). Qdrant is machine-to-machine and can stay on its sslip.io name, which avoids editing your local `.env`.
+
+1. Add A records pointing at the server IP. Add them wherever the domain's DNS is actually hosted (check the registrar's nameservers first; a domain registered at one provider can have DNS served by another, so manage records where the nameservers point). Explicit records win over any `*` wildcard.
+
+   ```text
+   app        A   <server-ip>
+   n8n        A   <server-ip>
+   ```
+
+2. Wait for DNS to resolve before touching the stack (Caddy needs it for the Let's Encrypt HTTP-01 challenge):
+
+   ```bash
+   dig +short app.example.com   # must return <server-ip>
+   ```
+
+3. Point `.env.cloud` at the new hostnames (leave `QDRANT_FQDN`/`QDRANT_API_KEY` alone): `APP_FQDN`, `N8N_FQDN`, `N8N_HOST`, `N8N_PUBLIC_URL`, `N8N_EDITOR_BASE_URL`, `WEBHOOK_URL` (keep trailing slash), and `APP_PUBLIC_URL`.
+
+4. Recreate, then re-seed so the chat trigger's CORS origin is rewritten from the new `APP_PUBLIC_URL`, then restart n8n. The restart is required and easy to miss: re-importing only writes the new origin to the DB; a running n8n keeps serving the old CORS registration until it restarts (the import job even logs "Changes will not take effect if n8n is running").
+
+   ```bash
+   docker compose -f docker-compose.cloud.yml up -d
+   docker compose -f docker-compose.cloud.yml exec n8n rm -f /home/node/.n8n/.imported
+   docker compose -f docker-compose.cloud.yml up -d n8n-import n8n
+   docker compose -f docker-compose.cloud.yml restart n8n
+   ```
+
+Caddy reissues certs automatically on the first request to each new host. If the browser shows a CORS preflight failure (`No 'Access-Control-Allow-Origin' header`), it almost always means step 4's `restart n8n` was skipped.
