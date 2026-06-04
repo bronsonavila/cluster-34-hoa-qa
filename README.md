@@ -1,6 +1,6 @@
 # Cluster 34 HOA Q&A
 
-A self-hosted question-and-answer app over the Mililani Town Unit 34 Association governing documents. Drop PDFs into a shared inbox, and the stack converts them, embeds them into Qdrant, and serves a chat UI grounded in those documents only.
+A question-and-answer app over the Mililani Town Unit 34 Association governing documents. Drop PDFs into a shared inbox, and the stack converts them, embeds them into Qdrant, and serves a chat UI grounded in those documents only.
 
 > Forked from [n8n-io/self-hosted-ai-starter-kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) and maintained by [theaiautomators](https://github.com/theaiautomators).
 
