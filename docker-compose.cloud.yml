@@ -32,7 +32,11 @@ x-n8n-cloud: &service-n8n-cloud
 
 services:
   caddy:
-    image: caddy:2-alpine
+    # Built locally (not pulled) so it includes the rate_limit module. See
+    # deploy/Caddy.Dockerfile. Deploys must use `up -d --build` to refresh it.
+    build:
+      context: .
+      dockerfile: deploy/Caddy.Dockerfile
     container_name: caddy
     networks: ['cloud']
     restart: unless-stopped

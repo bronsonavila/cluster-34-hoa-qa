@@ -75,8 +75,10 @@ Key variables (all in `.env.cloud`):
 ## 5. Bring up the stack
 
 ```bash
-docker compose -f docker-compose.cloud.yml up -d
+docker compose -f docker-compose.cloud.yml up -d --build
 ```
+
+The `--build` flag is required: Caddy is built locally from `deploy/Caddy.Dockerfile` (it bundles the non-standard `rate_limit` module) rather than pulled, so a plain `up -d` would not produce the custom image.
 
 On first boot, `n8n-import` loads cloud credentials and the chat workflow (CORS patched from `APP_PUBLIC_URL`, workflow activated). Caddy obtains TLS certs the first time each hostname is hit; the initial request can take a few seconds.
 
@@ -130,8 +132,10 @@ There is no push-to-deploy without Coolify. To update the VPS after changing the
 ```bash
 cd cluster-34-hoa-qa && git pull
 docker compose -f docker-compose.cloud.yml pull
-docker compose -f docker-compose.cloud.yml up -d
+docker compose -f docker-compose.cloud.yml up -d --build
 ```
+
+`pull` refreshes the upstream images (n8n, qdrant, nginx); it does not touch the locally built Caddy image, so `--build` is what picks up Caddyfile or Dockerfile changes.
 
 Workflow/credential changes also need a re-import. Remove the marker to let the import job rerun, or import manually:
 

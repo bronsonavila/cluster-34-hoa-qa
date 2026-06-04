@@ -8,7 +8,38 @@
 }
 
 {$N8N_FQDN} {
-	reverse_proxy n8n:5678
+	# Only the public chat webhook is internet-facing. The editor UI, /rest, and
+	# /signin are managed via docker exec on the internal Docker network, so they
+	# need no public exposure.
+	@webhook path /webhook/*
+	handle @webhook {
+		# Per-client IP rate limiting (the chat webhook is public and
+		# unauthenticated). The burst zone cuts floods off within seconds; the
+		# sustained zone caps slow-drip abuse. Either trip returns HTTP 429.
+		# Nothing proxies in front of this VPS, so {remote_host} is the real
+		# client IP.
+		rate_limit {
+			zone chat_burst {
+				key {remote_host}
+				events 5
+				window 10s
+			}
+			zone chat_sustained {
+				key {remote_host}
+				events 20
+				window 1m
+			}
+		}
+		# Bound per-call LLM cost: chat POST bodies are small.
+		request_body {
+			max_size 16KB
+		}
+		reverse_proxy n8n:5678
+	}
+
+	handle {
+		abort
+	}
 }
 
 {$QDRANT_FQDN} {
