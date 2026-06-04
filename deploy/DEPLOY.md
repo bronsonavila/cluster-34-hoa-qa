@@ -135,6 +135,15 @@ docker compose -f docker-compose.cloud.yml pull
 docker compose -f docker-compose.cloud.yml up -d --build
 ```
 
+One-time setup so `git pull` does not abort: the `web` container regenerates `web/config.js` (webhook URL + Cloudflare token) on every startup, which dirties the working tree. Tell git to ignore those runtime writes on this machine once:
+
+```bash
+git checkout -- web/config.js
+git update-index --skip-worktree web/config.js
+```
+
+`config.js` is a generated artifact on the server (its committed contents are only for local dev), so ignoring local changes loses nothing here. If a future pull ever reports a conflict on it, run `git checkout -- web/config.js` first, then pull.
+
 `pull` refreshes the upstream images (n8n, qdrant, nginx); it does not touch the locally built Caddy image, so `--build` rebuilds it from `deploy/Caddy.Dockerfile`.
 
 Changes to bind-mounted config files are NOT applied by `up -d`. Compose only recreates a container when its service definition changes (image, env, ports, volume mappings), not when the contents of a mounted file change, and these files are read only when the process starts. After editing one, restart that service explicitly:
@@ -144,7 +153,7 @@ docker compose -f docker-compose.cloud.yml restart web    # after editing deploy
 docker compose -f docker-compose.cloud.yml restart caddy  # after editing deploy/Caddyfile
 ```
 
-For example, the `X-Robots-Tag: noindex` header in `deploy/nginx-web.conf` only takes effect after `restart web`. Files that nginx serves as content rather than reads as config (`web/index.html`, `web/robots.txt`, `web/config.js`) are live on the next request and need no restart.
+For example, the `X-Robots-Tag: noindex` header in `deploy/nginx-web.conf` only takes effect after `restart web`. Static files nginx serves as content (`web/index.html`, `web/robots.txt`) are live on the next request and need no restart. `web/config.js` is the exception: the `web` container regenerates it at startup from `N8N_PUBLIC_URL` and `CF_BEACON_TOKEN`, so changing those env values requires recreating the container (`up -d web`), not just editing the file.
 
 Workflow/credential changes also need a re-import. Remove the marker to let the import job rerun, or import manually:
 
