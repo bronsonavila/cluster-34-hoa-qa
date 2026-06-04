@@ -677,5 +677,63 @@
         if (!textarea.getAttribute('id')) textarea.setAttribute('id', 'chat-input')
       })()
     </script>
+
+    <script>
+      // The @n8n/chat widget force-scrolls the message list to the bottom on
+      // every streamed token: per chunk it runs `nextTick(() =>
+      // chatEventBus.emit('scrollToBottom'))`, and the handler does
+      // `chatBody.scrollTop = chatBody.scrollHeight`. If the user scrolls up to
+      // read earlier text mid-answer, that keeps yanking them back down.
+      //
+      // Listening to the `scroll` event to detect intent does not work, because
+      // the widget's own programmatic jump fires `scroll` too and would reset our
+      // state on every token. Instead we intercept the assignment at the source:
+      // we redefine `scrollTop` on the `.chat-body` element so the widget's
+      // jump-to-bottom is ignored while the user has scrolled away. Real user
+      // scrolling (wheel, trackpad, scrollbar) moves the element natively and
+      // never hits this setter, so it is untouched.
+      ;(function respectUserScroll() {
+        const root = document.querySelector('#n8n-chat')
+        const body = root && root.querySelector('.chat-body')
+
+        if (!body) {
+          setTimeout(respectUserScroll, 200)
+
+          return
+        }
+
+        const bottomThreshold = 40 // px of slack to still count as "at the bottom"
+
+        const distanceFromBottom = () =>
+          body.scrollHeight - body.scrollTop - body.clientHeight
+
+        let pinnedToBottom = true
+
+        body.addEventListener(
+          'scroll',
+          () => {
+            pinnedToBottom = distanceFromBottom() <= bottomThreshold
+          },
+          { passive: true }
+        )
+
+        const nativeScrollTop = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')
+
+        Object.defineProperty(body, 'scrollTop', {
+          configurable: true,
+          get() {
+            return nativeScrollTop.get.call(this)
+          },
+          set(value) {
+            const jumpingToBottom = value >= this.scrollHeight - this.clientHeight - bottomThreshold
+
+            // Honor programmatic jumps to the bottom only while the user is
+            // already there. Any other assignment (e.g. restoring an exact
+            // position) is always allowed.
+            if (!jumpingToBottom || pinnedToBottom) nativeScrollTop.set.call(this, value)
+          }
+        })
+      })()
+    </script>
   </body>
 </html>
