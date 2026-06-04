@@ -682,40 +682,47 @@
       // The @n8n/chat widget force-scrolls the message list to the bottom on
       // every streamed token: per chunk it runs `nextTick(() =>
       // chatEventBus.emit('scrollToBottom'))`, and the handler does
-      // `chatBody.scrollTop = chatBody.scrollHeight`. If the user scrolls up to
-      // read earlier text mid-answer, that keeps yanking them back down.
+      // `chatBody.scrollTop = chatBody.scrollHeight`. That makes a streaming
+      // answer impossible to read at your own pace.
       //
-      // Listening to the `scroll` event to detect intent does not work, because
-      // the widget's own programmatic jump fires `scroll` too and would reset our
-      // state on every token. Instead we intercept the assignment at the source:
-      // we redefine `scrollTop` on the `.chat-body` element so the widget's
-      // jump-to-bottom is ignored while the user has scrolled away. Real user
-      // scrolling (wheel, trackpad, scrollbar) moves the element natively and
-      // never hits this setter, so it is untouched.
-      ;(function respectUserScroll() {
+      // We want auto-scroll only when a NEW bubble appears (the user's question,
+      // the "Thinking..." bubble, each answer bubble), but never while text
+      // streams into an existing bubble. Every bubble is a top-level
+      // `.chat-message` node; streamed text grows inside an existing bubble's
+      // `.chat-message-markdown` and never adds a new `.chat-message`. So a new
+      // bubble is a clean, reliable signal.
+      //
+      // We intercept the jump at its source by redefining `scrollTop` on the
+      // `.chat-body` element. A jump-to-bottom is honored once per newly added
+      // bubble and dropped otherwise. Real user scrolling (wheel, trackpad,
+      // scrollbar) moves the element natively and never hits this setter, so it
+      // is untouched.
+      ;(function scrollToNewBubblesOnly() {
         const root = document.querySelector('#n8n-chat')
         const body = root && root.querySelector('.chat-body')
 
         if (!body) {
-          setTimeout(respectUserScroll, 200)
+          setTimeout(scrollToNewBubblesOnly, 200)
 
           return
         }
 
-        const bottomThreshold = 40 // px of slack to still count as "at the bottom"
+        const bottomThreshold = 40 // px of slack to still count as a "jump to bottom"
 
-        const distanceFromBottom = () =>
-          body.scrollHeight - body.scrollTop - body.clientHeight
+        // Start true so the initial messages / restored session scroll into view.
+        let bubbleAwaitingScroll = true
 
-        let pinnedToBottom = true
+        new MutationObserver(mutations => {
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+              if (node.nodeType === 1 && node.matches('.chat-message')) {
+                bubbleAwaitingScroll = true
 
-        body.addEventListener(
-          'scroll',
-          () => {
-            pinnedToBottom = distanceFromBottom() <= bottomThreshold
-          },
-          { passive: true }
-        )
+                return
+              }
+            }
+          }
+        }).observe(body, { childList: true, subtree: true })
 
         const nativeScrollTop = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')
 
@@ -727,10 +734,19 @@
           set(value) {
             const jumpingToBottom = value >= this.scrollHeight - this.clientHeight - bottomThreshold
 
-            // Honor programmatic jumps to the bottom only while the user is
-            // already there. Any other assignment (e.g. restoring an exact
-            // position) is always allowed.
-            if (!jumpingToBottom || pinnedToBottom) nativeScrollTop.set.call(this, value)
+            // Non-jump assignments are always honored. A jump to the bottom is
+            // honored once per new bubble, then suppressed for the streaming that
+            // follows.
+            if (!jumpingToBottom) {
+              nativeScrollTop.set.call(this, value)
+
+              return
+            }
+
+            if (bubbleAwaitingScroll) {
+              bubbleAwaitingScroll = false
+              nativeScrollTop.set.call(this, value)
+            }
           }
         })
       })()
