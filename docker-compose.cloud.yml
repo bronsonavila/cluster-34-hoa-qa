@@ -78,6 +78,9 @@ services:
           n8n import:credentials --separate --input=/n8n/cloud/credentials
           sed "s|https://app.example.com|$${APP_PUBLIC_URL}|g" /n8n/workflows/hoa-chat.json > /tmp/hoa-chat.json
           n8n import:workflow --input=/tmp/hoa-chat.json
+          # Error workflow (emails on any workflow failure). Referenced by the
+          # chat workflow via settings.errorWorkflow; needs no active state.
+          n8n import:workflow --input=/n8n/workflows/error-handler.json
           # import:workflow does not honor "active"; set it in the DB before the
           # main n8n process starts so its startup registers the chat webhook.
           n8n update:workflow --id=hoaChat2026 --active=true
@@ -133,11 +136,18 @@ services:
       - /bin/sh
       - -c
       - |
-        if [ -n "$${N8N_PUBLIC_URL:-}" ]; then
-          printf "window.N8N_WEBHOOK_URL = '%s/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat';\n" "$${N8N_PUBLIC_URL}" > /usr/share/nginx/html/config.js
-          echo "Wrote config.js with webhook URL $${N8N_PUBLIC_URL}"
+        if [ -n "$${N8N_PUBLIC_URL:-}" ] || [ -n "$${CF_BEACON_TOKEN:-}" ]; then
+          : > /usr/share/nginx/html/config.js
+          if [ -n "$${N8N_PUBLIC_URL:-}" ]; then
+            printf "window.N8N_WEBHOOK_URL = '%s/webhook/c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f/chat';\n" "$${N8N_PUBLIC_URL}" >> /usr/share/nginx/html/config.js
+            echo "Wrote config.js with webhook URL $${N8N_PUBLIC_URL}"
+          fi
+          if [ -n "$${CF_BEACON_TOKEN:-}" ]; then
+            printf "window.CF_BEACON_TOKEN = '%s';\n" "$${CF_BEACON_TOKEN}" >> /usr/share/nginx/html/config.js
+            echo "Wrote config.js with Cloudflare Web Analytics token"
+          fi
         else
-          echo "N8N_PUBLIC_URL is not set; leaving config.js unchanged"
+          echo "N8N_PUBLIC_URL and CF_BEACON_TOKEN are not set; leaving config.js unchanged"
         fi
         exec /docker-entrypoint.sh nginx -g 'daemon off;'
     volumes:

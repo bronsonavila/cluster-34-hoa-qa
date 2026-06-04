@@ -4,10 +4,39 @@
 # Caddy obtains and renews Let's Encrypt certs automatically.
 
 {$APP_FQDN} {
+	# Structured access log persisted to the caddy_data volume. Answers "who's
+	# using this" (UI page hits) and "is anything broken" (4xx/5xx rates). See
+	# the Monitoring section in deploy/DEPLOY.md for query snippets.
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format json
+	}
 	reverse_proxy web:80
 }
 
 {$N8N_FQDN} {
+	# Same access log as the app host. Filter request.uri for /webhook/ here to
+	# count chat questions actually asked (a pageview is not a conversation).
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format json
+	}
+
+	# Public liveness check for uptime monitoring. n8n's built-in /healthz
+	# returns 200 {"status":"ok"} instantly without running any workflow, so an
+	# external monitor can confirm n8n is alive without burning LLM tokens or
+	# hanging on the streaming chat trigger. Exposes no data.
+	@health path /healthz
+	handle @health {
+		reverse_proxy n8n:5678
+	}
+
 	# Only the public chat webhook is internet-facing. The editor UI, /rest, and
 	# /signin are managed via docker exec on the internal Docker network, so they
 	# need no public exposure.

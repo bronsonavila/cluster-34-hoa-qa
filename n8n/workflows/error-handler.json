@@ -1,0 +1,68 @@
+{
+  "createdAt": "2026-05-31T00:10:00.000Z",
+  "updatedAt": "2026-05-31T00:10:00.000Z",
+  "id": "hoaErrors2026",
+  "name": "HOA Q&A Error Handler",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e1111111-0000-4000-8000-000000000001",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.ALERT_EMAIL_FROM }}",
+        "toEmail": "={{ $env.ALERT_EMAIL_TO }}",
+        "subject": "=[HOA Q&A] Workflow failed: {{ $json.workflow.name }}",
+        "emailFormat": "text",
+        "text": "=A workflow run failed.\n\nWorkflow: {{ $json.workflow.name }} ({{ $json.workflow.id }})\nFailed node: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\nMode: {{ $json.execution.mode }}\nExecution: {{ $json.execution.url }}",
+        "options": {}
+      },
+      "id": "e1111111-0000-4000-8000-000000000002",
+      "name": "Email Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        140,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "smtpAlerts0000001",
+          "name": "SMTP (alerts)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Email Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "versionId": "hoaErrors2026-v1",
+  "triggerCount": 0,
+  "tags": []
+}

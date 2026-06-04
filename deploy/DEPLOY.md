@@ -153,6 +153,71 @@ docker compose -f docker-compose.cloud.yml exec n8n rm -f /home/node/.n8n/.impor
 docker compose -f docker-compose.cloud.yml up -d n8n-import n8n
 ```
 
+## Monitoring
+
+Two questions, four lightweight pieces. None of these add an always-on container, so the 2 GB box is unaffected.
+
+### Who's using this
+
+1. Cloudflare Web Analytics (page views and visitors). In the Cloudflare dashboard go to Analytics & Logs > Web Analytics, add a site, and copy the token out of the JS snippet it shows. Put it in `.env.cloud`:
+
+   ```bash
+   CF_BEACON_TOKEN=<token from Cloudflare>
+   ```
+
+   The token is injected into `web/config.js` at container startup (same mechanism as the webhook URL), and `web/index.html` loads the beacon only when it is set. Apply it by recreating the web container:
+
+   ```bash
+   docker compose -f docker-compose.cloud.yml up -d web
+   ```
+
+   You do NOT need to move your DNS to Cloudflare; the beacon works standalone.
+
+2. Caddy access logs (server-side, no account). Caddy writes a JSON access log to `/data/access.log` in the `caddy_data` volume for both the app and n8n hosts. A page view is not a conversation, so count actual questions asked by filtering the webhook path:
+
+   ```bash
+   # Questions asked (chat webhook POSTs)
+   docker compose -f docker-compose.cloud.yml exec caddy \
+     sh -c 'cat /data/access.log' | jq -c 'select(.request.uri | startswith("/webhook/"))' | wc -l
+
+   # Error rate (non-2xx/3xx responses)
+   docker compose -f docker-compose.cloud.yml exec caddy \
+     sh -c 'cat /data/access.log' | jq 'select(.status >= 400) | {ts, host: .request.host, uri: .request.uri, status}'
+   ```
+
+### Is anything broken
+
+3. Uptime monitor (external, emails you when the site or webhook is down). Sign up for UptimeRobot (free) and add two monitors, both alerting to your email:
+
+   - HTTP(s) monitor on `https://app.<host>` (the chat UI, via Caddy to nginx). Catches a down VPS, Caddy, or web container.
+   - HTTP(s) monitor on `https://n8n.<host>/healthz` (n8n liveness). This is a dedicated route in the Caddyfile that proxies to n8n's built-in `/healthz`, returning `200 {"status":"ok"}` instantly. Do NOT point the monitor at the chat webhook: it is a streaming trigger, so a GET hangs, and a POST would run a real (paid) chat on every probe. This catches "the page loads but n8n is dead," which the in-app error workflow cannot.
+
+4. n8n error workflow (emails you when a chat or ingestion run fails while the site is still up, e.g. an OpenRouter or Qdrant error). The workflow `error-handler.json` is imported automatically and referenced by both workflows via `settings.errorWorkflow`. The matching `SMTP (alerts)` credential is also imported from `n8n/cloud/credentials/smtp.json`, which reads its values from the environment, so you never need the n8n editor UI. Set these in `.env.cloud`:
+
+   ```bash
+   SMTP_HOST=smtp.resend.com        # or smtp.gmail.com, smtp.sendgrid.net, ...
+   SMTP_PORT=465                    # 465 = implicit TLS (credential default)
+   SMTP_USER=resend                 # provider-specific username
+   SMTP_PASSWORD=<smtp password / API key>
+   ALERT_EMAIL_FROM=alerts@yourdomain.com
+   ALERT_EMAIL_TO=you@yourdomain.com
+   ```
+
+   Getting SMTP credentials, pick one:
+   - Gmail: enable 2-Step Verification, then create an App Password (Google Account > Security > App passwords). `SMTP_HOST=smtp.gmail.com`, `SMTP_USER=<your gmail>`, `SMTP_PASSWORD=<app password>`.
+   - Resend: sign up, create an API key. `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASSWORD=<api key>`.
+
+   For a provider that only offers 587/STARTTLS, set `SMTP_PORT=587` and change `"secure": true` to `false` in `n8n/cloud/credentials/smtp.json`.
+
+   The credential and workflow are imported by the first-boot seed job, which has already run on an existing deploy. Re-run it to pick them up, then restart n8n so it loads the new env:
+
+   ```bash
+   docker compose -f docker-compose.cloud.yml exec n8n rm -f /home/node/.n8n/.imported
+   docker compose -f docker-compose.cloud.yml up -d n8n-import n8n
+   ```
+
+   To confirm alerts actually send, temporarily break a run (e.g. set a bad `OPENROUTER_API_KEY`, ask one question, then restore it) and check for the `[HOA Q&A] Workflow failed` email.
+
 ## Backups
 
 Snapshot the Docker volumes `n8n_storage` (n8n SQLite DB + encryption key) and `qdrant_storage` (vectors) periodically, or take a Vultr instance snapshot. Vectors are also reproducible by re-running local ingestion.

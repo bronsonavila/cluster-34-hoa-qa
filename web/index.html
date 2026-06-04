@@ -652,6 +652,22 @@
 
     <script src="config.js"></script>
 
+    <script>
+      // Cloudflare Web Analytics (cookieless pageview tracking). The beacon is
+      // injected only when CF_BEACON_TOKEN is present, which the cloud web
+      // container writes into config.js from the CF_BEACON_TOKEN env var. Local
+      // dev leaves it unset, so this is a no-op there.
+      if (window.CF_BEACON_TOKEN) {
+        const beacon = document.createElement('script')
+
+        beacon.defer = true
+        beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js'
+        beacon.setAttribute('data-cf-beacon', JSON.stringify({ token: window.CF_BEACON_TOKEN }))
+
+        document.head.appendChild(beacon)
+      }
+    </script>
+
     <script type="module">
       import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat@1.0.0/dist/chat.bundle.es.js'
 

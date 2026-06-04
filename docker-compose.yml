@@ -100,6 +100,9 @@ services:
           echo "First run detected - importing seed data..."
           n8n import:credentials --separate --input=/n8n/credentials
           n8n import:workflow --input=/n8n/workflows/hoa-ingestion.json
+          # Error workflow (emails on any workflow failure). Referenced by both
+          # the ingestion and chat workflows via settings.errorWorkflow.
+          n8n import:workflow --input=/n8n/workflows/error-handler.json
           # import:workflow does not honor "active"; set it in the DB before the
           # main n8n process starts so its startup registers the file trigger.
           n8n update:workflow --id=hoaIngest2026 --active=true
