@@ -93,7 +93,7 @@ services:
       - '-c'
       - |
         set -eu
-        # Only import if not already done (check marker file)
+        # Ingestion workflow + shared credentials (first run only).
         if [ -f /n8n/.imported ]; then
           echo "Seed data already imported - skipping"
         else
@@ -106,6 +106,21 @@ services:
           # Only mark complete after every step above succeeded (set -eu).
           touch /n8n/.imported
           echo "Import complete"
+        fi
+        # Chat workflow for LOCAL testing only. The cloud stack imports its own copy
+        # (docker-compose.cloud.yml) and patches the CORS origin to the public domain;
+        # here we patch it to the local UI origin so the browser preflight passes.
+        # Guarded by a separate marker so installs that already have /n8n/.imported
+        # still pick this up on the next `docker compose up n8n-import`.
+        if [ -f /n8n/.imported-chat ]; then
+          echo "Local chat workflow already imported - skipping"
+        else
+          echo "Importing chat workflow for local testing..."
+          sed 's|https://app.example.com|http://localhost:8080|g' /n8n/workflows/hoa-chat.json > /tmp/hoa-chat-local.json
+          n8n import:workflow --input=/tmp/hoa-chat-local.json
+          n8n update:workflow --id=hoaChat2026 --active=true
+          touch /n8n/.imported-chat
+          echo "Local chat import complete"
         fi
     volumes:
       - ./n8n:/n8n

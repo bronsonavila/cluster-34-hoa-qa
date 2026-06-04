@@ -1,7 +1,7 @@
 .DS_Store
 .env
 .env.cloud
-n8n/.imported
+n8n/.imported*
 shared/docling-scratch/
 shared/rag-files/inbox/*
 !shared/rag-files/inbox/.gitkeep
