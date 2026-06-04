@@ -528,8 +528,22 @@
       // widget renders each phase as its own message. This is prompt-independent:
       // no matter how chatty the model gets before a tool call, the preamble and
       // the answer never get mashed together.
+      //
+      // The model also sometimes emits a malformed tool call as plain text
+      // ("Calling Knowledge_Base_Qdrant_ with input: {...,"id":"call_..."}"),
+      // which lands in its own phase. We can't fix the model, but we can detect
+      // that phase by its opening text and drop it entirely before it reaches the
+      // widget. Content streams token by token, so we hold a phase's opening
+      // tokens until we can tell whether it's a real answer (flush and keep
+      // streaming) or a broken tool call (discard the whole phase).
       ;(function splitStreamPhases() {
         const originalFetch = window.fetch
+
+        // A phase whose text opens like "Calling <tool> with input:" is a
+        // malformed tool call the model wrote as prose. Drop it.
+        const brokenToolCall = /^Calling\s+\S+\s+with input:/
+        const callPrefix = 'Calling '
+        const maxUndecidedLength = 80 // stop suspecting a tool call past this point
 
         const buildSplitter = () => {
           const decoder = new TextDecoder()
@@ -537,19 +551,71 @@
           let buffer = ''
           let phase = -1
 
-          const retag = line => {
-            if (!line.trim()) return line
+          // Per-phase suppression state. While a phase is "hold" we keep its
+          // parsed events back; once we know it's a real answer we flush them,
+          // and if it's a broken tool call we discard them.
+          let held = []
+          let phaseText = ''
+          let decision = 'pass' // 'pass' | 'hold' | 'drop'
+
+          const emit = (event, controller) => {
+            if (event.metadata && phase >= 0) event.metadata.runIndex = phase
+
+            controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
+          }
+
+          const flushHeld = controller => {
+            phase += 1
+            held.forEach(event => emit(event, controller))
+            held = []
+            decision = 'pass'
+          }
+
+          const process = (line, controller) => {
+            if (!line.trim()) return
+
+            let event
 
             try {
-              const event = JSON.parse(line)
-
-              if (event.type === 'begin') phase += 1
-
-              if (event.metadata && phase >= 0) event.metadata.runIndex = phase
-
-              return JSON.stringify(event)
+              event = JSON.parse(line)
             } catch {
-              return line
+              controller.enqueue(encoder.encode(line + '\n'))
+
+              return
+            }
+
+            // A new phase resets suppression: hold its opening tokens until we
+            // can classify it. The phase counter only advances when we actually
+            // emit a phase, so dropped phases leave no gaps.
+            if (event.type === 'begin') {
+              held = []
+              phaseText = ''
+              decision = 'hold'
+            }
+
+            if (decision === 'pass') {
+              emit(event, controller)
+
+              return
+            }
+
+            if (decision === 'drop') return
+
+            held.push(event)
+
+            if (event.type === 'item' && typeof event.content === 'string') phaseText += event.content
+
+            if (brokenToolCall.test(phaseText)) {
+              held = []
+              decision = 'drop'
+
+              return
+            }
+
+            const stillCouldBeCall = phaseText.startsWith(callPrefix) || callPrefix.startsWith(phaseText)
+
+            if (!stillCouldBeCall || phaseText.length > maxUndecidedLength || event.type === 'end') {
+              flushHeld(controller)
             }
           }
 
@@ -560,10 +626,12 @@
               const lines = buffer.split('\n')
               buffer = lines.pop() ?? ''
 
-              lines.forEach(line => controller.enqueue(encoder.encode(retag(line) + '\n')))
+              lines.forEach(line => process(line, controller))
             },
             flush(controller) {
-              if (buffer.length > 0) controller.enqueue(encoder.encode(retag(buffer)))
+              if (buffer.length > 0) process(buffer, controller)
+
+              if (decision === 'hold' && held.length > 0) flushHeld(controller)
             }
           })
         }
